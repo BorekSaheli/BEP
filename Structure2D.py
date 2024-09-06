@@ -2,7 +2,7 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sp
-
+import os #to save plot only
 
 class Member:
     def __init__(self, x1, y1, x2, y2, E, I_flex_rigid, A, member_id):
@@ -602,11 +602,6 @@ s.add_hinge(s.nodes[6].x, s.nodes[6].y)
 
 # s.add_point_load_global(20, 15, 4)
 s.add_point_load_local('m3',s.members[3].length * 0.5 , 3,s.members[3].angle_deg - 90)
-#m3 and m5 m8 m9 dont work
-
-# build add node type
-# fix grid spacing
-# fix lenth bars distance and text distance
 
 
 ##### plot the structure ####
@@ -623,5 +618,9 @@ s.plot(
     
 )
 
+current_directory = os.path.dirname(os.path.abspath(__file__))
+save_path = os.path.join(current_directory, "structure.svg")
 
-plt.savefig("structure.svg")
+plt.savefig(save_path)
+
+
