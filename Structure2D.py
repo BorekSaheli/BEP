@@ -571,9 +571,6 @@ class Structure2D:
         ax.spines["top"].set_visible(False)
 
         plt.grid()
-
-        # plt.show()
-
 #____________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 #____________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
 
@@ -613,10 +610,10 @@ s.add_point_load_local('m3',s.members[3].length * 0.5 , 3,s.members[3].angle_deg
 
 
 ##### plot the structure ####
-plt.figure(figsize=(10, 7))
+# plt.figure(figsize=(7, 7))
 s.plot(
     draw_size=5,
-    show_axis=True,
+    show_axis=False,
     show_member_labels=True,
     draw_all_nodes=True,
     show_node_labels=True,
@@ -625,8 +622,6 @@ s.plot(
     length_bar_exact_values=True,
     
 )
-# Save the plot as an SVG before displaying
-plt.savefig("structure.svg")
 
-#update test
-print("update test")
+
+plt.savefig("structure.svg")
