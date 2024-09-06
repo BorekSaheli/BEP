@@ -2,7 +2,8 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sp
-import os #to save plot only
+import os  # to save plot only
+
 
 class Member:
     def __init__(self, x1, y1, x2, y2, E, I_flex_rigid, A, member_id):
@@ -18,12 +19,25 @@ class Member:
         self.angle_deg = sp.deg(self.angle)
         self.member_id = member_id
 
-        #forces
+        # forces
         self.external_loads = []
 
+
 class ExternalLoad:
-    def __init__(self, load_type,x1, y1, x2=None,y2=None, applied_to=None, local_x=None, value=1, global_angle=90,relative_angle=None, load_id=None):
-        
+    def __init__(
+        self,
+        load_type,
+        x1,
+        y1,
+        x2=None,
+        y2=None,
+        applied_to=None,
+        local_x=None,
+        value=1,
+        global_angle=90,
+        relative_angle=None,
+        load_id=None,
+    ):
         self.load_type = load_type
         self.x1 = x1
         self.y1 = y1
@@ -31,19 +45,18 @@ class ExternalLoad:
         # self.x = x1
         # self.y = y1
 
-        #for distributed loads
+        # for distributed loads
         self.x2 = x2
         self.y2 = y2
 
-        self.value = value #kn
+        self.value = value  # kn
         self.global_angle = global_angle
         self.relative_angle = relative_angle
-        
+
         self.applied_to = applied_to
 
         self.local_x = local_x  # Position along the member (used for distributed loads or point loads on members)
         self.load_id = load_id
-        
 
 
 class Node:
@@ -53,7 +66,7 @@ class Node:
         self.node_type = node_type
         self.node_id = node_id
 
-        #forces
+        # forces
         self.external_loads = []
 
 
@@ -66,7 +79,7 @@ class Support:
         self.support_id = support_id
 
 
-#_______________________________________________________________________________________________________________________
+# _____________________________________________________________________________________________________________________________________
 
 
 class Structure2D:
@@ -76,7 +89,7 @@ class Structure2D:
         self.nodes = []
 
     # find xy position at a member based on local x and member id
-    #input example "m0"
+    # input example "m0"
     def find_xy_at_target(self, target_name, local_x=None):
         # is not very nice but it works
         if target_name[0] == "m":
@@ -87,32 +100,38 @@ class Structure2D:
             member_length = sp.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
             x = x1 + local_x * (x2 - x1) / member_length
             y = y1 + local_x * (y2 - y1) / member_length
-            
+
             return x, y
-        
+
         elif target_name[0] == "n":
             node_id_input = int(target_name.replace("n", ""))
             node = self.nodes[node_id_input]
-            
+
             return node.x, node.y
 
-        
-    
-    
     def add_point_load_local(self, target, local_x, value, global_angle=90):
         x, y = self.find_xy_at_target(target, local_x)
-        
+
         self.add_point_load_global(x, y, value, global_angle=global_angle)
 
     def add_point_load_global(self, x, y, value, global_angle=90):
         if value == 0:
-            raise ValueError ("The load value cannot be zero")
+            raise ValueError("The load value cannot be zero")
 
         # Check if the load is applied at an existing node
         for node in self.nodes:
             if node.x == x and node.y == y:
                 load_id = len(node.external_loads)
-                external_load = ExternalLoad("point", x, y, applied_to=f'n{node.node_id}', local_x=1, value=value, global_angle=global_angle, load_id=load_id)
+                external_load = ExternalLoad(
+                    "point",
+                    x,
+                    y,
+                    applied_to=f"n{node.node_id}",
+                    local_x=1,
+                    value=value,
+                    global_angle=global_angle,
+                    load_id=load_id,
+                )
                 node.external_loads.append(external_load)
                 # print(f"Load of {value}kN applied at node {node.node_id} at ({float(x)}, {float(y)})")
                 return
@@ -122,49 +141,64 @@ class Structure2D:
             x1, y1, x2, y2 = member.x1, member.y1, member.x2, member.y2
 
             # Handle vertical members
-            if sp.simplify(x2-x1) == 0 and sp.simplify(x1-x) == 0:
+            if sp.simplify(x2 - x1) == 0 and sp.simplify(x1 - x) == 0:
                 # print("vertical member",sp.simplify(x1-x), member.member_id)
-                
-                
+
                 if min(y1, y2) < y < max(y1, y2):
                     load_id = len(member.external_loads)
                     local_x = sp.Abs(y - y1)
-                    external_load = ExternalLoad("point", x, y, applied_to=f'm{member.member_id}', local_x=local_x, value=value, global_angle=global_angle, load_id=load_id)
+                    external_load = ExternalLoad(
+                        "point",
+                        x,
+                        y,
+                        applied_to=f"m{member.member_id}",
+                        local_x=local_x,
+                        value=value,
+                        global_angle=global_angle,
+                        load_id=load_id,
+                    )
                     member.external_loads.append(external_load)
                     # print(f"Load of {value}kN applied on vertical member {member.member_id} at ({float(x)}, {float(y)})")
                     return
-                
-            elif sp.simplify(x2-x1) != 0:
-                                              
-                
+
+            elif sp.simplify(x2 - x1) != 0:
                 a = (y2 - y1) / (x2 - x1)
                 b = y1 - a * x1
                 line_eq = (a * x) + b
 
-                
-
-                #pfff this is slow af but its finally evaluating correctly
+                # pfff this is slow af but its finally evaluating correctly
                 # print(sp.simplify(sp.nsimplify(line_eq) - sp.nsimplify(y)) , member.member_id)
 
                 if sp.simplify(sp.nsimplify(line_eq) - sp.nsimplify(y)) == 0:
-                    
                     # print("on the member", member.member_id,member.x1,member.y1,member.x2,member.y2)
-        
 
-                    if x >= min(x1, x2) and x <= max(x1, x2) and y >= min(y1, y2) and y <= max(y1, y2):
+                    if (
+                        x >= min(x1, x2)
+                        and x <= max(x1, x2)
+                        and y >= min(y1, y2)
+                        and y <= max(y1, y2)
+                    ):
                         load_id = len(member.external_loads)
-                        local_x = sp.sqrt((x - x1)**2 + (y - y1)**2)
-                        external_load = ExternalLoad("point", x, y, applied_to=f'm{member.member_id}', local_x=local_x, value=value, global_angle=global_angle, load_id=load_id)
+                        local_x = sp.sqrt((x - x1) ** 2 + (y - y1) ** 2)
+                        external_load = ExternalLoad(
+                            "point",
+                            x,
+                            y,
+                            applied_to=f"m{member.member_id}",
+                            local_x=local_x,
+                            value=value,
+                            global_angle=global_angle,
+                            load_id=load_id,
+                        )
                         member.external_loads.append(external_load)
                         # print(f"Load of {value}kN applied on member {member.member_id} at ({float(x)}, {float(y)})")
                         return
 
-
-                
-
-    #_______________________________________________________________________________________________________________________        
+    # _____________________________________________________________________________________________________________________________________
     ### MEMBER FUNCTIONS ###
-    def add_member_length_angle(self, start_x, start_y, length, angle, E=1, I_flex_rigid=1, A=1):
+    def add_member_length_angle(
+        self, start_x, start_y, length, angle, E=1, I_flex_rigid=1, A=1
+    ):
         angle = angle / 180 * sp.pi
         x1 = start_x
         y1 = start_y
@@ -182,8 +216,8 @@ class Structure2D:
         # Check end node
         self.add_or_update_node(x2, y2, "fixed", overwrite=False)
         return member
-    
-    #_______________________________________________________________________________________________________________________
+
+    # _____________________________________________________________________________________________________________________________________
     ### NODE FUNCTIONS ###
     # Check if the node already exists or update type
     def add_or_update_node(self, x, y, new_node_type, overwrite=True):
@@ -201,7 +235,7 @@ class Structure2D:
         self.nodes.append(new_node)
         return new_node
 
-    #_______________________________________________________________________________________________________________________
+    # _____________________________________________________________________________________________________________________________________
     ### SUPPORT FUNCTIONS ###
     def add_support(self, x, y, support_type="pin", global_angle=0):
         global_angle = np.deg2rad(global_angle)
@@ -228,8 +262,8 @@ class Structure2D:
         self.add_or_update_node(x, y, new_node_type, overwrite=True)
 
         return support
-    
-    #_______________________________________________________________________________________________________________________
+
+    # _____________________________________________________________________________________________________________________________________
     ### HINGE FUNCTIONS ###
     def add_hinge(self, x, y):
         node_id = len(self.nodes)
@@ -239,8 +273,8 @@ class Structure2D:
         self.add_or_update_node(x, y, "hinge", overwrite=True)
         return hinge
 
-    #____________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
-    ############################## PLOTTING FUNCTIONS ##############################
+    # _____________________________________________________________________________________________________________________________________
+    ############################################# PLOTTING FUNCTIONS ###########################3#############################
     def plot(
         self,
         show_member_labels=False,
@@ -254,8 +288,7 @@ class Structure2D:
         show_length_bars=True,
         length_bar_exact_values=True,
     ):
-        
-        #_______________________________________________________________________________________________________________________
+        # _____________________________________________________________________________________________________________________________________
         #### length side bars ###
         def get_length_ticks():
             x_values_for_length_lines = []
@@ -264,6 +297,12 @@ class Structure2D:
             for node in self.nodes:
                 x_values_for_length_lines.append(node.x)
                 y_values_for_length_lines.append(node.y)
+
+            # get the x and y values of external loads
+            for member in self.members:
+                for load in member.external_loads:
+                    x_values_for_length_lines.append(load.x1)
+                    y_values_for_length_lines.append(load.y1)
 
             simplified_x = [sp.nsimplify(expr) for expr in x_values_for_length_lines]
             simplified_y = [sp.nsimplify(expr) for expr in y_values_for_length_lines]
@@ -275,15 +314,25 @@ class Structure2D:
             y_length_ticks = sorted(unique_y)
 
             return x_length_ticks, y_length_ticks
+
         # Draw forces
         def draw_force_vector(ax, x, y, size=1, length=2, angle=90, color="darkred"):
             angle = float(angle - 180)
             dx = np.cos(np.radians(angle)) * length
             dy = np.sin(np.radians(angle)) * length
-                
-            arrow_patch = patches.FancyArrow(x-dx,y-dy, dx, dy, length_includes_head=True, width=0.01*size, head_width=0.08*size, head_length=0.16*size, color=color)
+
+            arrow_patch = patches.FancyArrow(
+                x - dx,
+                y - dy,
+                dx,
+                dy,
+                length_includes_head=True,
+                width=0.01 * size,
+                head_width=0.08 * size,
+                head_length=0.16 * size,
+                color=color,
+            )
             ax.add_patch(arrow_patch).zorder = 100
-            
 
         # Draw nodes
         def draw_nodes(ax, x, y, node_type, size, edgecolor="black", facecolor="black"):
@@ -394,7 +443,9 @@ class Structure2D:
                     y = load.y1
                     value = load.value
                     angle = load.global_angle
-                    draw_force_vector(plt.gca(), x, y, size=draw_size, length=value, angle=angle)
+                    draw_force_vector(
+                        plt.gca(), x, y, size=draw_size, length=value, angle=angle
+                    )
 
         # plot supports
         for support in self.supports:
@@ -451,23 +502,21 @@ class Structure2D:
                     fontsize=8,
                     zorder=12,
                 )
-            
+
             if show_forces:
                 for load in node.external_loads:
                     x = load.x1
                     y = load.y1
                     value = load.value
                     angle = load.global_angle
-                    draw_force_vector(plt.gca(), x, y, size=draw_size, length=value, angle=angle)
+                    draw_force_vector(
+                        plt.gca(), x, y, size=draw_size, length=value, angle=angle
+                    )
 
             # if show_all_nodes:
             #     draw_nodes(plt.gca(), x, y, node_type, size=2, edgecolor="black")
 
-
         # Draw forces
-        
-
-
 
         if show_length_bars:
             x_length_ticks, y_length_ticks = get_length_ticks()
@@ -475,7 +524,7 @@ class Structure2D:
             y_min = round(float(x_length_ticks[-1]) + 1, 0)
 
             # length lines plot
-            #along x
+            # along x
             plt.plot(
                 x_length_ticks, (x_min) * np.ones(len(x_length_ticks)), "k", marker="|"
             )
@@ -483,11 +532,9 @@ class Structure2D:
                 y_min * np.ones(len(y_length_ticks)), y_length_ticks, "k", marker="_"
             )
 
-
             grid_spacing = plt.gca().get_xticks()
 
             grid_spacing = grid_spacing[1] - grid_spacing[0]
-            
 
             # lenth per segment text
             for i in range(0, len(x_length_ticks) - 1):
@@ -499,7 +546,7 @@ class Structure2D:
                     # print(float(loc) - y_length_ticks[0])
                     plt.text(
                         float(loc),
-                        x_min - grid_spacing/5,
+                        x_min - grid_spacing / 5,
                         f"${segment_lenth}$",
                         ha="center",
                         va="bottom",
@@ -509,7 +556,7 @@ class Structure2D:
                 else:
                     plt.text(
                         float(loc),
-                        x_min - grid_spacing/5,
+                        x_min - grid_spacing / 5,
                         f"${round(float(segment_lenth),2)}$",
                         ha="center",
                         va="bottom",
@@ -522,15 +569,12 @@ class Structure2D:
                 segment_lenth = sp.Abs(
                     sp.simplify(y_length_ticks[i + 1] - y_length_ticks[i])
                 )
-                
 
                 if length_bar_exact_values:
                     # get  grid ticks
 
-                    
-
                     plt.text(
-                        y_min + grid_spacing/5,
+                        y_min + grid_spacing / 5,
                         float(loc),
                         f"${segment_lenth}$",
                         ha="center",
@@ -540,7 +584,7 @@ class Structure2D:
                     )
                 else:
                     plt.text(
-                        y_min + grid_spacing/5, # y_min + 1.5,
+                        y_min + grid_spacing / 5,  # y_min + 1.5,
                         float(loc),
                         f"${round(float(segment_lenth),2)}$",
                         ha="center",
@@ -548,7 +592,7 @@ class Structure2D:
                         color="black",
                         fontsize=8,
                     )
-#_______________________________________________________________________________________________________________________
+        # _____________________________________________________________________________________________________________________________________
         #### PLOT STYLE ####
         if not show_axis:
             plt.tick_params(
@@ -571,8 +615,11 @@ class Structure2D:
         ax.spines["top"].set_visible(False)
 
         plt.grid()
-#____________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
-#____________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________
+
+
+# _____________________________________________________________________________________________________________________________________
+#######################################################################################################################################
+# _____________________________________________________________________________________________________________________________________
 
 s = Structure2D()
 
@@ -601,7 +648,8 @@ s.add_hinge(s.nodes[5].x, s.nodes[5].y)
 s.add_hinge(s.nodes[6].x, s.nodes[6].y)
 
 # s.add_point_load_global(20, 15, 4)
-s.add_point_load_local('m3',s.members[3].length * 0.5 , 3,s.members[3].angle_deg - 90)
+s.add_point_load_local("m1", s.members[1].length / 2, 3, s.members[1].angle_deg + 90)
+# s.add_point_load_local('n1', None, 3, 90)
 
 
 ##### plot the structure ####
@@ -615,12 +663,9 @@ s.plot(
     show_node_labels_types=False,
     show_length_bars=True,
     length_bar_exact_values=True,
-    
 )
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
 save_path = os.path.join(current_directory, "structure.svg")
 
 plt.savefig(save_path)
-
-
