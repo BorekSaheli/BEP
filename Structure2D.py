@@ -1,7 +1,26 @@
+"""
+This module can be used to solve a 2D structure bending problem with
+singularity functions in mechanics.
+"""
+
+from sympy.functions.elementary.miscellaneous import sqrt
+from sympy.functions.elementary.trigonometric import atan2
+from sympy.geometry.polygon import deg
+from sympy.simplify.simplify import simplify
+from sympy.simplify import nsimplify
+from sympy.functions.elementary.complexes import Abs
+from sympy.functions.elementary.trigonometric import sin, cos
+from sympy.core.numbers import pi
+
+# from sympy.plotting import plot,
+
+# from matplotlib.patches import FancyArrow
+
+
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
-import sympy as sp
+
 import os  # to save plot only
 
 
@@ -14,9 +33,9 @@ class Member:
         self.E = E
         self.I_flex_rigid = I_flex_rigid
         self.A = A
-        self.length = sp.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-        self.angle = sp.atan2(y2 - y1, x2 - x1)
-        self.angle_deg = sp.deg(self.angle)
+        self.length = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        self.angle = atan2(y2 - y1, x2 - x1)
+        self.angle_deg = deg(self.angle)
         self.member_id = member_id
 
         # forces
@@ -97,7 +116,7 @@ class Structure2D:
             member = self.members[member_id_input]
 
             x1, y1, x2, y2 = member.x1, member.y1, member.x2, member.y2
-            member_length = sp.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+            member_length = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
             x = x1 + local_x * (x2 - x1) / member_length
             y = y1 + local_x * (y2 - y1) / member_length
 
@@ -141,12 +160,12 @@ class Structure2D:
             x1, y1, x2, y2 = member.x1, member.y1, member.x2, member.y2
 
             # Handle vertical members
-            if sp.simplify(x2 - x1) == 0 and sp.simplify(x1 - x) == 0:
-                # print("vertical member",sp.simplify(x1-x), member.member_id)
+            if simplify(x2 - x1) == 0 and simplify(x1 - x) == 0:
+                # print("vertical member",simplify(x1-x), member.member_id)
 
                 if min(y1, y2) < y < max(y1, y2):
                     load_id = len(member.external_loads)
-                    local_x = sp.Abs(y - y1)
+                    local_x = Abs(y - y1)
                     external_load = ExternalLoad(
                         "point",
                         x,
@@ -161,15 +180,15 @@ class Structure2D:
                     # print(f"Load of {value}kN applied on vertical member {member.member_id} at ({float(x)}, {float(y)})")
                     return
 
-            elif sp.simplify(x2 - x1) != 0:
+            elif simplify(x2 - x1) != 0:
                 a = (y2 - y1) / (x2 - x1)
                 b = y1 - a * x1
                 y_computed = (a * x) + b
 
                 # pfff this is slow af but its finally evaluating correctly
-                # print(sp.simplify(sp.nsimplify(line_eq) - sp.nsimplify(y)) , member.member_id)
+                # print(simplify(nsimplify(line_eq) - nsimplify(y)) , member.member_id)
 
-                if sp.simplify(sp.nsimplify(y_computed) - sp.nsimplify(y)) == 0:
+                if simplify(nsimplify(y_computed) - nsimplify(y)) == 0:
                     # print("on the member", member.member_id,member.x1,member.y1,member.x2,member.y2)
                     # to ensure you are on the line inbetween the start and end point
                     if (
@@ -179,7 +198,7 @@ class Structure2D:
                         and y <= max(y1, y2)
                     ):
                         load_id = len(member.external_loads)
-                        local_x = sp.sqrt((x - x1) ** 2 + (y - y1) ** 2)
+                        local_x = sqrt((x - x1) ** 2 + (y - y1) ** 2)
                         external_load = ExternalLoad(
                             "point",
                             x,
@@ -199,11 +218,11 @@ class Structure2D:
     def add_member_length_angle(
         self, start_x, start_y, length, angle, E=1, I_flex_rigid=1, A=1
     ):
-        angle = angle / 180 * sp.pi
+        angle = angle / 180 * pi
         x1 = start_x
         y1 = start_y
-        x2 = x1 + length * sp.cos(angle)
-        y2 = y1 + length * sp.sin(angle)
+        x2 = x1 + length * cos(angle)
+        y2 = y1 + length * sin(angle)
         return self.add_member_coordinates(x1, y1, x2, y2, E, I_flex_rigid, A)
 
     def add_member_coordinates(self, x1, y1, x2, y2, E=1, I_flex_rigid=1, A=1):
@@ -304,8 +323,8 @@ class Structure2D:
                     x_values_for_length_lines.append(load.x1)
                     y_values_for_length_lines.append(load.y1)
 
-            simplified_x = [sp.nsimplify(expr) for expr in x_values_for_length_lines]
-            simplified_y = [sp.nsimplify(expr) for expr in y_values_for_length_lines]
+            simplified_x = [nsimplify(expr) for expr in x_values_for_length_lines]
+            simplified_y = [nsimplify(expr) for expr in y_values_for_length_lines]
 
             unique_x = list(dict.fromkeys(simplified_x))
             unique_y = list(dict.fromkeys(simplified_y))
@@ -569,9 +588,7 @@ class Structure2D:
             # lenth per segment text
             for i in range(0, len(x_length_ticks) - 1):
                 loc = (x_length_ticks[i] + x_length_ticks[i + 1]) / 2
-                segment_lenth = sp.Abs(
-                    sp.simplify(x_length_ticks[i + 1] - x_length_ticks[i])
-                )
+                segment_lenth = Abs(simplify(x_length_ticks[i + 1] - x_length_ticks[i]))
 
                 if length_bar_exact_values:
                     # print(float(loc) - y_length_ticks[0])
@@ -597,9 +614,7 @@ class Structure2D:
 
             for i in range(0, len(y_length_ticks) - 1):
                 loc = (y_length_ticks[i] + y_length_ticks[i + 1]) / 2
-                segment_lenth = sp.Abs(
-                    sp.simplify(y_length_ticks[i + 1] - y_length_ticks[i])
-                )
+                segment_lenth = Abs(simplify(y_length_ticks[i + 1] - y_length_ticks[i]))
 
                 if length_bar_exact_values:
                     # get  grid ticks
