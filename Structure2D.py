@@ -5,6 +5,7 @@ import sympy as sp
 import os  # to save plot only
 
 
+
 class Member:
     def __init__(self, x1, y1, x2, y2, E, I_flex_rigid, A, member_id):
         self.x1 = x1
@@ -419,8 +420,8 @@ class Structure2D:
                     angle = angle + np.pi
 
                 plt.text(
-                    mid_x + (offset**2 * 0.032 * np.sin(angle)),
-                    mid_y - (offset**2 * 0.032 * np.cos(angle)),
+                    mid_x + (offset**2 * 0.040 * np.sin(angle)),
+                    mid_y - (offset**2 * 0.040 * np.cos(angle)),
                     f"$m_{member_id}$",
                     ha="center",
                     va="center",
@@ -520,21 +521,28 @@ class Structure2D:
 
         if show_length_bars:
             x_length_ticks, y_length_ticks = get_length_ticks()
-            x_min = round(float(y_length_ticks[0]) - 1, 0)
-            y_min = round(float(x_length_ticks[-1]) + 1, 0)
-
-            # length lines plot
-            # along x
-            plt.plot(
-                x_length_ticks, (x_min) * np.ones(len(x_length_ticks)), "k", marker="|"
-            )
-            plt.plot(
-                y_min * np.ones(len(y_length_ticks)), y_length_ticks, "k", marker="_"
-            )
+            x_min = round(float(y_length_ticks[0]), 0)
+            y_min = round(float(x_length_ticks[-1]), 0)
 
             grid_spacing = plt.gca().get_xticks()
 
             grid_spacing = grid_spacing[1] - grid_spacing[0]
+
+            # length lines plot
+            # along x
+            plt.plot(
+                x_length_ticks,
+                (x_min - grid_spacing) * np.ones(len(x_length_ticks)),
+                "k",
+                marker="|",
+            )
+            # along y
+            plt.plot(
+                (y_min + grid_spacing) * np.ones(len(y_length_ticks)),
+                y_length_ticks,
+                "k",
+                marker="_",
+            )
 
             # lenth per segment text
             for i in range(0, len(x_length_ticks) - 1):
@@ -542,11 +550,12 @@ class Structure2D:
                 segment_lenth = sp.Abs(
                     sp.simplify(x_length_ticks[i + 1] - x_length_ticks[i])
                 )
+
                 if length_bar_exact_values:
                     # print(float(loc) - y_length_ticks[0])
                     plt.text(
                         float(loc),
-                        x_min - grid_spacing / 5,
+                        x_min - grid_spacing * 1.25,
                         f"${segment_lenth}$",
                         ha="center",
                         va="bottom",
@@ -556,7 +565,7 @@ class Structure2D:
                 else:
                     plt.text(
                         float(loc),
-                        x_min - grid_spacing / 5,
+                        x_min - grid_spacing * 1.25,
                         f"${round(float(segment_lenth),2)}$",
                         ha="center",
                         va="bottom",
@@ -574,7 +583,7 @@ class Structure2D:
                     # get  grid ticks
 
                     plt.text(
-                        y_min + grid_spacing / 5,
+                        y_min + grid_spacing * 1.25,
                         float(loc),
                         f"${segment_lenth}$",
                         ha="center",
@@ -584,7 +593,7 @@ class Structure2D:
                     )
                 else:
                     plt.text(
-                        y_min + grid_spacing / 5,  # y_min + 1.5,
+                        y_min + grid_spacing * 1.25,  # y_min + 1.5,
                         float(loc),
                         f"${round(float(segment_lenth),2)}$",
                         ha="center",
@@ -620,6 +629,7 @@ class Structure2D:
 # _____________________________________________________________________________________________________________________________________
 #######################################################################################################################################
 # _____________________________________________________________________________________________________________________________________
+########### EXAMPLE ###################################################################################################################
 
 s = Structure2D()
 
@@ -647,25 +657,30 @@ s.add_hinge(s.nodes[4].x, s.nodes[4].y)
 s.add_hinge(s.nodes[5].x, s.nodes[5].y)
 s.add_hinge(s.nodes[6].x, s.nodes[6].y)
 
-# s.add_point_load_global(20, 15, 4)
+s.add_point_load_global(20, 15, 4)
 s.add_point_load_local("m1", s.members[1].length / 2, 3, s.members[1].angle_deg + 90)
-# s.add_point_load_local('n1', None, 3, 90)
-
+s.add_point_load_local("n2", None, 3, -90)
+s.add_point_load_local("m2",1, 3, 0)
 
 ##### plot the structure ####
-# plt.figure(figsize=(7, 7))
+plt.figure(figsize=(11,11))
 s.plot(
-    draw_size=5,
+    draw_size=8,
     show_axis=False,
-    show_member_labels=True,
+    show_member_labels=True,  # show labels under each member
     draw_all_nodes=True,
-    show_node_labels=True,
-    show_node_labels_types=False,
+    show_node_labels=True,  # show node labels on top of each node
+    show_node_labels_types=False,  # show node type
     show_length_bars=True,
-    length_bar_exact_values=True,
+    length_bar_exact_values=True,  # True WORKS WITH SYMPY :) , False is decimal values
 )
 
+
+# save the plot
 current_directory = os.path.dirname(os.path.abspath(__file__))
 save_path = os.path.join(current_directory, "structure.svg")
 
-plt.savefig(save_path)
+
+
+
+plt.savefig(save_path, bbox_inches="tight", pad_inches=0.1)
