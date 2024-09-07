@@ -5,7 +5,6 @@ import sympy as sp
 import os  # to save plot only
 
 
-
 class Member:
     def __init__(self, x1, y1, x2, y2, E, I_flex_rigid, A, member_id):
         self.x1 = x1
@@ -165,14 +164,14 @@ class Structure2D:
             elif sp.simplify(x2 - x1) != 0:
                 a = (y2 - y1) / (x2 - x1)
                 b = y1 - a * x1
-                line_eq = (a * x) + b
+                y_computed = (a * x) + b
 
                 # pfff this is slow af but its finally evaluating correctly
                 # print(sp.simplify(sp.nsimplify(line_eq) - sp.nsimplify(y)) , member.member_id)
 
-                if sp.simplify(sp.nsimplify(line_eq) - sp.nsimplify(y)) == 0:
+                if sp.simplify(sp.nsimplify(y_computed) - sp.nsimplify(y)) == 0:
                     # print("on the member", member.member_id,member.x1,member.y1,member.x2,member.y2)
-
+                    # to ensure you are on the line inbetween the start and end point
                     if (
                         x >= min(x1, x2)
                         and x <= max(x1, x2)
@@ -390,81 +389,112 @@ class Structure2D:
             ax.add_patch(triangle_patch).zorder = 10
             ax.add_patch(circle).zorder = 10
 
+        # _____________________________________________________________________________________________________________________________________
+        #### PLOT ####
         # Plot members
-        x_len_ticks = get_length_ticks()[0]
-        # y_len_ticks = get_length_ticks()[1]
+        def get_grid_spacing():
+            grid_spacing = plt.gca().get_xticks()
+            return grid_spacing[1] - grid_spacing[0]
 
-        offset = float(sum(x_len_ticks)) / 10
-
-        for member in self.members:
+        def plot_member(member):
             x = [float(member.x1), float(member.x2)]
             y = [float(member.y1), float(member.y2)]
-            angle = float(member.angle)
-            E = member.E
-            I_flex_rigid = member.I_flex_rigid
-            A = member.A
-            member_id = member.member_id
-
             plt.plot(x, y, "k-")
 
             mid_x = (x[0] + x[1]) / 2
             mid_y = (y[0] + y[1]) / 2
+            angle = float(member.angle)
 
-            if show_member_labels:
-                if (
-                    angle > np.pi / 2
-                    and angle < 3 * np.pi / 2
-                    or angle < -np.pi / 2
-                    and angle > -3 * np.pi / 2
-                ):
-                    angle = angle + np.pi
+            return mid_x, mid_y, angle
 
-                plt.text(
-                    mid_x + (offset**2 * 0.040 * np.sin(angle)),
-                    mid_y - (offset**2 * 0.040 * np.cos(angle)),
-                    f"$m_{member_id}$",
-                    ha="center",
-                    va="center",
-                    rotation=angle * 180 / np.pi,
-                )
+        def adjust_angle_of_text_rad(angle):
+            flip_sign = 1
+            if (np.pi / 2 < angle < 3 * np.pi / 2) or (
+                -3 * np.pi / 2 < angle < -np.pi / 2
+            ):
+                angle += np.pi
+                flip_sign = -1
 
-            if show_properties:
-                plt.text(
-                    mid_x + 0.2 * np.sin(angle),
-                    mid_y - 0.2 * np.cos(angle),
-                    f"$EI={E*I_flex_rigid}, EA={E*A}$",
-                    ha="center",
-                    va="center",
-                    rotation=angle * 180 / np.pi,
-                )
+            return angle, flip_sign
 
-            if show_forces:
-                for load in member.external_loads:
-                    x = load.x1
-                    y = load.y1
-                    value = load.value
-                    angle = load.global_angle
-                    draw_force_vector(
-                        plt.gca(), x, y, size=draw_size, length=value, angle=angle
+        def plot_members(show_member_labels, show_properties, show_forces, draw_size):
+            for member in self.members:
+                plot_member(member)
+            # this needs to be done after the members are plotted
+            grid_spacing = get_grid_spacing()
+
+            # spacing need to be known before plotting the text
+            for member in self.members:
+                mid_x, mid_y, angle = plot_member(member)
+                member_id = member.member_id
+
+                ## more DRY code
+                member_id_text = ""
+
+                if show_member_labels and show_properties:
+                    member_id_text = (
+                        f"$m_{member_id}$ ({member.E},{member.I_flex_rigid},{member.A})"
+                    )
+                elif show_member_labels:
+                    member_id_text = f"$m_{member_id}$"
+                elif show_properties:
+                    member_id_text = f"({member.E},{member.I_flex_rigid},{member.A})"
+
+                if member_id_text:
+                    angle_adjusted_for_text, flip_sign = adjust_angle_of_text_rad(angle)
+                    text_x = mid_x + (flip_sign * grid_spacing * 0.10 * np.sin(angle))
+                    text_y = mid_y - (flip_sign * grid_spacing * 0.10 * np.cos(angle))
+
+                    plt.text(
+                        text_x,
+                        text_y,
+                        member_id_text,
+                        ha="center",
+                        va="center",
+                        rotation=np.degrees(angle_adjusted_for_text),
                     )
 
-        # plot supports
-        for support in self.supports:
-            x = float(support.x)
-            y = float(support.y)
-            support_type = support.support_type
-            global_angle = float(support.global_angle)
+                if show_forces:
+                    for load in member.external_loads:
+                        x = load.x1
+                        y = load.y1
+                        value = load.value
+                        angle = load.global_angle
+                        draw_force_vector(
+                            plt.gca(), x, y, size=draw_size, length=value, angle=angle
+                        )
 
-            ### MORE TYPES NEED TO BE ADDED
-            if support_type == "pin":
-                draw_support_pin(
-                    plt.gca(), x, y, global_angle=global_angle, size=draw_size
-                )
-            else:
-                pass
+        plot_members(
+            show_member_labels=show_member_labels,
+            show_properties=show_properties,
+            show_forces=show_forces,
+            draw_size=draw_size,
+        )
 
-        # Plot nodes
+        # Plot supports
+        def plot_supports(draw_size, show_node_labels, show_node_labels_types):
+            for support in self.supports:
+                x = float(support.x)
+                y = float(support.y)
+                support_type = support.support_type
+                global_angle = float(support.global_angle)
 
+                ### MORE TYPES NEED TO BE ADDED
+                if support_type == "pin":
+                    draw_support_pin(
+                        plt.gca(), x, y, global_angle=global_angle, size=draw_size
+                    )
+                else:
+                    pass
+
+        plot_supports(
+            draw_size=draw_size,
+            show_node_labels=show_node_labels,
+            show_node_labels_types=show_node_labels_types,
+        )
+
+        grid_spacing = plt.gca().get_xticks()
+        grid_spacing = grid_spacing[1] - grid_spacing[0]
         for node in self.nodes:
             x = float(node.x)
             y = float(node.y)
@@ -480,28 +510,28 @@ class Structure2D:
                     plt.gca(), x, y, node_type, size=draw_size, edgecolor="black"
                 )
 
-            if show_node_labels:
+            ## more DRY code
+            node_id_text = ""
+
+            if show_node_labels and show_node_labels_types:
+                node_id_text = f"$n_{node.node_id}$ $({node.node_type})$"
+
+            elif show_node_labels and not show_node_labels_types:
+                node_id_text = f"$n_{node.node_id}$"
+
+            elif show_node_labels_types and not show_node_labels:
+                node_id_text = f"$({node.node_type})$"
+
+            if node_id_text:
                 plt.text(
                     x,
-                    y + 0.1,
-                    f"$n_{node.node_id}$",
+                    y + grid_spacing / 8,
+                    node_id_text,
                     ha="center",
                     va="bottom",
                     color="blue",
                     zorder=12,
-                )
-
-            if show_node_labels_types:
-                node_type_text = node_type.replace("_", r"\ ")
-                plt.text(
-                    x + 0.1,
-                    y,
-                    f"${node_type_text}$",
-                    ha="left",
-                    va="center",
-                    color="blue",
-                    fontsize=8,
-                    zorder=12,
+                    bbox=dict(facecolor="lightgrey", alpha=0.50, edgecolor="none"),
                 )
 
             if show_forces:
@@ -514,19 +544,11 @@ class Structure2D:
                         plt.gca(), x, y, size=draw_size, length=value, angle=angle
                     )
 
-            # if show_all_nodes:
-            #     draw_nodes(plt.gca(), x, y, node_type, size=2, edgecolor="black")
-
         # Draw forces
-
         if show_length_bars:
             x_length_ticks, y_length_ticks = get_length_ticks()
             x_min = round(float(y_length_ticks[0]), 0)
             y_min = round(float(x_length_ticks[-1]), 0)
-
-            grid_spacing = plt.gca().get_xticks()
-
-            grid_spacing = grid_spacing[1] - grid_spacing[0]
 
             # length lines plot
             # along x
@@ -642,7 +664,11 @@ s.add_member_coordinates(
     s.supports[0].x, s.supports[0].y, s.members[1].x2, s.members[1].y2
 )
 
-s.add_support(10, 0, "pin")
+s.add_support(
+    10,
+    0,
+    "pin",
+)
 s.add_member_coordinates(s.supports[1].x, s.supports[1].y, s.nodes[2].x, s.nodes[2].y)
 s.add_member_coordinates(s.supports[1].x, s.supports[1].y, s.supports[1].x, 7.5)
 s.add_member_coordinates(s.nodes[4].x, s.nodes[4].y, s.nodes[2].x, s.nodes[2].y)
@@ -650,6 +676,7 @@ s.add_member_coordinates(s.supports[1].x, s.supports[1].y, 12.5, 3.75)
 s.add_member_coordinates(s.nodes[5].x, s.nodes[5].y, s.nodes[4].x, s.nodes[4].y)
 s.add_member_coordinates(s.nodes[5].x, s.nodes[5].y, 20, 15)
 s.add_member_coordinates(s.nodes[6].x, s.nodes[6].y, s.nodes[4].x, s.nodes[4].y)
+s.add_support(-10, 15, "pin", 90 + 180)
 
 s.add_hinge(s.nodes[1].x, s.nodes[1].y)
 s.add_hinge(s.nodes[2].x, s.nodes[2].y)
@@ -657,16 +684,26 @@ s.add_hinge(s.nodes[4].x, s.nodes[4].y)
 s.add_hinge(s.nodes[5].x, s.nodes[5].y)
 s.add_hinge(s.nodes[6].x, s.nodes[6].y)
 
-s.add_point_load_global(20, 15, 4)
+s.add_point_load_global(20, 15, 4, 180)
 s.add_point_load_local("m1", s.members[1].length / 2, 3, s.members[1].angle_deg + 90)
 s.add_point_load_local("n2", None, 3, -90)
-s.add_point_load_local("m2",1, 3, 0)
+s.add_point_load_local("m2", 1, 3, 0)
+
+y = 5
+a = (s.nodes[6].y - s.nodes[5].y) / (s.nodes[6].x - s.nodes[5].x)
+b = s.nodes[6].y - (a * s.nodes[6].x)
+x = (y - b) / a
+
+s.add_point_load_global(x, 5, 3, 90)
+s.add_point_load_global(x, 5, 3, 90)
+
 
 ##### plot the structure ####
-plt.figure(figsize=(11,11))
+plt.figure(figsize=(11, 11))
 s.plot(
     draw_size=8,
-    show_axis=False,
+    show_axis=True,
+    show_properties=False,
     show_member_labels=True,  # show labels under each member
     draw_all_nodes=True,
     show_node_labels=True,  # show node labels on top of each node
@@ -679,8 +716,6 @@ s.plot(
 # save the plot
 current_directory = os.path.dirname(os.path.abspath(__file__))
 save_path = os.path.join(current_directory, "structure.svg")
-
-
 
 
 plt.savefig(save_path, bbox_inches="tight", pad_inches=0.1)
