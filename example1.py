@@ -1,8 +1,11 @@
 from Structure2D import Structure2D
+# import sympy as sp
 
 import matplotlib.pyplot as plt
 import os  # to save plot only
 
+from sympy import init_printing
+init_printing()
 
 s = Structure2D()
 
@@ -37,8 +40,6 @@ b = s.nodes[6].y - (a * s.nodes[6].x)
 x = (y - b) / a
 
 s.add_point_load_global(x, 5, 3, 90)
-s.add_point_load_global(x, 5, 3, 90)
-
 
 ##### plot the structure ####
 plt.figure(figsize=(11, 11))
@@ -59,3 +60,9 @@ current_directory = os.path.dirname(os.path.abspath(__file__))
 save_path = os.path.join(current_directory, "example1.svg")
 
 plt.savefig(save_path, bbox_inches="tight", pad_inches=0.1)
+
+print('Memeber 1 external load')
+print(f'fx={s.members[8].external_loads[0].global_f_horizontal}')
+print(f'fy={s.members[8].external_loads[0].global_f_vertical}')
+print(f'angle={s.members[8].external_loads[0].global_angle_rad}')
+print(f'angle={s.members[8].external_loads[0].global_angle}')

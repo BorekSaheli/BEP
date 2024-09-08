@@ -3,17 +3,44 @@ This module can be used to solve a 2D structure bending problem with
 singularity functions in mechanics.
 """
 
+from sympy.core.numbers import pi
 from sympy.functions.elementary.miscellaneous import sqrt
-from sympy.geometry.polygon import deg
-from sympy.simplify.simplify import simplify
-from sympy.simplify import nsimplify
 from sympy.functions.elementary.complexes import Abs
 from sympy.functions.elementary.trigonometric import sin, cos, atan2
-from sympy.core.numbers import pi
+from sympy.simplify import nsimplify
+from sympy.simplify.simplify import simplify
+from sympy.geometry.polygon import deg
 
-# import matplotlib.patches as patches
-# import matplotlib.pyplot as plt
-# import numpy as np
+from sympy.external import import_module
+
+numpy = import_module(
+    "numpy",
+    import_kwargs={
+        "fromlist": [
+            "numpy",
+        ]
+    },
+)
+plt = import_module(
+    "matplotlib.pyplot",
+    import_kwargs={
+        "fromlist": [
+            "pyplot",
+        ]
+    },
+)
+patches = import_module(
+    "matplotlib.patches",
+    import_kwargs={
+        "fromlist": [
+            "FancyArrow",
+            "Circle",
+            "Rectangle",
+            "Polygon",
+        ]
+    },
+)
+
 
 class Member:
     def __init__(self, x1, y1, x2, y2, E, I_flex_rigid, A, member_id):
@@ -45,7 +72,11 @@ class ExternalLoad:
         local_x=None,
         value=1,
         global_angle=90,
+        # global_f_horizontal=None,
+        # global_f_vertical=None,
         relative_angle=None,
+        # relative_f_horizontal=None,
+        # relative_f_vertical=None,
         load_id=None,
     ):
         self.load_type = load_type
@@ -61,6 +92,10 @@ class ExternalLoad:
 
         self.value = value  # kn
         self.global_angle = global_angle
+        self.global_angle_rad = global_angle / 180 * pi
+        self.global_f_horizontal = value * cos(self.global_angle_rad)
+        self.global_f_vertical = value * sin(self.global_angle_rad)
+
         self.relative_angle = relative_angle
 
         self.applied_to = applied_to
@@ -119,6 +154,7 @@ class Structure2D:
 
             return node.x, node.y
 
+    # _____________________________________________________________________________________________________________________________________
     def add_point_load_local(self, target, local_x, value, global_angle=90):
         x, y = self.find_xy_at_target(target, local_x)
 
@@ -298,13 +334,10 @@ class Structure2D:
         show_length_bars=True,
         length_bar_exact_values=True,
     ):
-        
-        try:
-            import matplotlib.pyplot as plt
-            import matplotlib.patches as patches
-            import numpy as np
-        except ImportError:
-            raise ImportError("Matplotlib and Numpy are required for plotting the structure.")
+        if not numpy:
+            raise ImportError("To use this function numpy module is required")
+        if not plt:
+            raise ImportError("To use this function matplotlib module is required")
 
         # _____________________________________________________________________________________________________________________________________
         #### length side bars ###
@@ -336,8 +369,8 @@ class Structure2D:
         # Draw forces
         def draw_force_vector(ax, x, y, size=1, length=2, angle=90, color="darkred"):
             angle = float(angle - 180)
-            dx = np.cos(np.radians(angle)) * length
-            dy = np.sin(np.radians(angle)) * length
+            dx = numpy.cos(numpy.radians(angle)) * length
+            dy = numpy.sin(numpy.radians(angle)) * length
 
             arrow_patch = patches.FancyArrow(
                 x - dx,
@@ -377,24 +410,24 @@ class Structure2D:
         ):
             size = size * 1 / 5
 
-            triangle = np.array(
+            triangle = numpy.array(
                 [
                     [x, y],
-                    [x - np.cos(1) * size, y - np.sin(1) * size],
-                    [x + np.cos(1) * size, y - np.sin(1) * size],
+                    [x - numpy.cos(1) * size, y - numpy.sin(1) * size],
+                    [x + numpy.cos(1) * size, y - numpy.sin(1) * size],
                 ]
             )
 
-            rotation_matrix = np.array(
+            rotation_matrix = numpy.array(
                 [
-                    [np.cos(global_angle), -np.sin(global_angle)],
-                    [np.sin(global_angle), np.cos(global_angle)],
+                    [numpy.cos(global_angle), -numpy.sin(global_angle)],
+                    [numpy.sin(global_angle), numpy.cos(global_angle)],
                 ]
             )
 
-            triangle = np.dot(
-                triangle - np.array([x, y]), rotation_matrix.T
-            ) + np.array([x, y])
+            triangle = numpy.dot(
+                triangle - numpy.array([x, y]), rotation_matrix.T
+            ) + numpy.array([x, y])
 
             triangle_patch = patches.Polygon(
                 triangle, closed=True, edgecolor=edgecolor, facecolor=facecolor
@@ -427,10 +460,10 @@ class Structure2D:
 
         def adjust_angle_of_text_rad(angle):
             flip_sign = 1
-            if (np.pi / 2 < angle < 3 * np.pi / 2) or (
-                -3 * np.pi / 2 < angle < -np.pi / 2
+            if (numpy.pi / 2 < angle < 3 * numpy.pi / 2) or (
+                -3 * numpy.pi / 2 < angle < -numpy.pi / 2
             ):
-                angle += np.pi
+                angle += numpy.pi
                 flip_sign = -1
 
             return angle, flip_sign
@@ -460,8 +493,12 @@ class Structure2D:
 
                 if member_id_text:
                     angle_adjusted_for_text, flip_sign = adjust_angle_of_text_rad(angle)
-                    text_x = mid_x + (flip_sign * grid_spacing * 0.10 * np.sin(angle))
-                    text_y = mid_y - (flip_sign * grid_spacing * 0.10 * np.cos(angle))
+                    text_x = mid_x + (
+                        flip_sign * grid_spacing * 0.10 * numpy.sin(angle)
+                    )
+                    text_y = mid_y - (
+                        flip_sign * grid_spacing * 0.10 * numpy.cos(angle)
+                    )
 
                     plt.text(
                         text_x,
@@ -469,7 +506,7 @@ class Structure2D:
                         member_id_text,
                         ha="center",
                         va="center",
-                        rotation=np.degrees(angle_adjusted_for_text),
+                        rotation=numpy.degrees(angle_adjusted_for_text),
                     )
 
                 if show_forces:
@@ -572,13 +609,13 @@ class Structure2D:
             # along x
             plt.plot(
                 x_length_ticks,
-                (x_min - grid_spacing) * np.ones(len(x_length_ticks)),
+                (x_min - grid_spacing) * numpy.ones(len(x_length_ticks)),
                 "k",
                 marker="|",
             )
             # along y
             plt.plot(
-                (y_min + grid_spacing) * np.ones(len(y_length_ticks)),
+                (y_min + grid_spacing) * numpy.ones(len(y_length_ticks)),
                 y_length_ticks,
                 "k",
                 marker="_",
@@ -660,6 +697,3 @@ class Structure2D:
         ax.spines["top"].set_visible(False)
 
         plt.grid()
-
-
-
