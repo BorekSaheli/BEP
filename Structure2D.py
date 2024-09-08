@@ -78,6 +78,7 @@ class ExternalLoad:
         # relative_f_horizontal=None,
         # relative_f_vertical=None,
         load_id=None,
+        draw_at_head=True,
     ):
         self.load_type = load_type
         self.x1 = x1
@@ -102,6 +103,8 @@ class ExternalLoad:
 
         self.local_x = local_x  # Position along the member (used for distributed loads or point loads on members)
         self.load_id = load_id
+
+        self.draw_at_head = draw_at_head
 
 
 class Node:
@@ -155,12 +158,12 @@ class Structure2D:
             return node.x, node.y
 
     # _____________________________________________________________________________________________________________________________________
-    def add_point_load_local(self, target, local_x, value, global_angle=90):
+    def add_point_load_local(self, target, local_x, value, global_angle=90,draw_at_head=True):
         x, y = self.find_xy_at_target(target, local_x)
 
-        self.add_point_load_global(x, y, value, global_angle=global_angle)
+        self.add_point_load_global(x, y, value, global_angle=global_angle,draw_at_head=draw_at_head)
 
-    def add_point_load_global(self, x, y, value, global_angle=90):
+    def add_point_load_global(self, x, y, value, global_angle=90,draw_at_head=True):
         if value == 0:
             raise ValueError("The load value cannot be zero")
 
@@ -177,6 +180,7 @@ class Structure2D:
                     value=value,
                     global_angle=global_angle,
                     load_id=load_id,
+                    draw_at_head=draw_at_head,
                 )
                 node.external_loads.append(external_load)
                 # print(f"Load of {value}kN applied at node {node.node_id} at ({float(x)}, {float(y)})")
@@ -202,6 +206,7 @@ class Structure2D:
                         value=value,
                         global_angle=global_angle,
                         load_id=load_id,
+                        draw_at_head=draw_at_head,
                     )
                     member.external_loads.append(external_load)
                     # print(f"Load of {value}kN applied on vertical member {member.member_id} at ({float(x)}, {float(y)})")
@@ -235,6 +240,7 @@ class Structure2D:
                             value=value,
                             global_angle=global_angle,
                             load_id=load_id,
+                            draw_at_head=draw_at_head,
                         )
                         member.external_loads.append(external_load)
                         # print(f"Load of {value}kN applied on member {member.member_id} at ({float(x)}, {float(y)})")
@@ -367,14 +373,19 @@ class Structure2D:
             return x_length_ticks, y_length_ticks
 
         # Draw forces
-        def draw_force_vector(ax, x, y, size=1, length=2, angle=90, color="darkred"):
+        def draw_force_vector(ax, x, y, size=1, length=2, angle=90, color="darkred",draw_at_head=True):
             angle = float(angle - 180)
             dx = numpy.cos(numpy.radians(angle)) * length
             dy = numpy.sin(numpy.radians(angle)) * length
+            dxdy_arrow_on = 1
+
+            if not draw_at_head:
+                dxdy_arrow_on = 0
 
             arrow_patch = patches.FancyArrow(
-                x - dx,
-                y - dy,
+                
+                x - (dx*dxdy_arrow_on),
+                y - (dy*dxdy_arrow_on),
                 dx,
                 dy,
                 length_includes_head=True,
@@ -508,16 +519,16 @@ class Structure2D:
                         va="center",
                         rotation=numpy.degrees(angle_adjusted_for_text),
                     )
-
-                if show_forces:
-                    for load in member.external_loads:
-                        x = load.x1
-                        y = load.y1
-                        value = load.value
-                        angle = load.global_angle
-                        draw_force_vector(
-                            plt.gca(), x, y, size=draw_size, length=value, angle=angle
-                        )
+    
+                # if show_forces:
+                for load in member.external_loads:
+                    x = load.x1
+                    y = load.y1
+                    value = load.value
+                    angle = load.global_angle
+                    draw_force_vector(
+                        plt.gca(), x, y, size=draw_size, length=value, angle=angle,draw_at_head=load.draw_at_head,
+                    )
 
         plot_members(
             show_member_labels=show_member_labels,
@@ -596,7 +607,7 @@ class Structure2D:
                     value = load.value
                     angle = load.global_angle
                     draw_force_vector(
-                        plt.gca(), x, y, size=draw_size, length=value, angle=angle
+                        plt.gca(), x, y, size=draw_size, length=value, angle=angle,draw_at_head=load.draw_at_head,
                     )
 
         # Draw forces

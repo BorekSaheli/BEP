@@ -4,9 +4,6 @@ from Structure2D import Structure2D
 import matplotlib.pyplot as plt
 import os  # to save plot only
 
-from sympy import init_printing
-init_printing()
-
 s = Structure2D()
 
 s.add_support(0, 0)
@@ -29,7 +26,7 @@ s.add_hinge(s.nodes[4].x, s.nodes[4].y)
 s.add_hinge(s.nodes[5].x, s.nodes[5].y)
 s.add_hinge(s.nodes[6].x, s.nodes[6].y)
 
-s.add_point_load_global(20, 15, 4, 180)
+s.add_point_load_global(20, 15, 4, 180,draw_at_head=False)
 s.add_point_load_local("m1", s.members[1].length / 2, 3, s.members[1].angle_deg + 90)
 s.add_point_load_local("n2", None, 3, -90)
 s.add_point_load_local("m2", 1, 3, 0)
@@ -39,7 +36,7 @@ a = (s.nodes[6].y - s.nodes[5].y) / (s.nodes[6].x - s.nodes[5].x)
 b = s.nodes[6].y - (a * s.nodes[6].x)
 x = (y - b) / a
 
-s.add_point_load_global(x, 5, 3, 90)
+s.add_point_load_global(x, 5, 3, 90,draw_at_head=False)
 
 ##### plot the structure ####
 plt.figure(figsize=(11, 11))
