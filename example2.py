@@ -49,3 +49,4 @@ save_path = os.path.join(current_directory, "example2.svg")
 
 plt.savefig(save_path, bbox_inches="tight", pad_inches=0.1)
 
+print(s)

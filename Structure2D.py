@@ -10,6 +10,9 @@ from sympy.functions.elementary.trigonometric import sin, cos, atan2
 from sympy.simplify import nsimplify
 from sympy.simplify.simplify import simplify
 from sympy.geometry.polygon import deg
+from sympy.core import Expr
+
+from typing import Union
 
 from sympy.external import import_module
 
@@ -43,21 +46,80 @@ patches = import_module(
 
 
 class Member:
-    def __init__(self, x1, y1, x2, y2, E, I_flex_rigid, A, member_id):
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
-        self.E = E
-        self.I_flex_rigid = I_flex_rigid
-        self.A = A
-        self.length = sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-        self.angle = atan2(y2 - y1, x2 - x1)
-        self.angle_deg = deg(self.angle)
+    def __init__(self, 
+                 x1: Union[int, float, Expr], 
+                 y1: Union[int, float, Expr], 
+                 x2: Union[int, float, Expr], 
+                 y2: Union[int, float, Expr], 
+                 E: Union[int, float, Expr], 
+                 I_flex_rigid: Union[int, float, Expr], 
+                 A: Union[int, float, Expr], 
+                 member_id: int):
+        """
+            Member object representing a member in a 2D structure.
+            
+            Parameters
+            ==========
+            x1 : Sympifyable
+                x-coordinate of the start point of the member.
+            y1 : Sympifyable
+                y-coordinate of the start point of the member.
+            x2 : Sympifyable
+                x-coordinate of the end point of the member.
+            y2 : Sympifyable
+                y-coordinate of the end point of the member.
+            E : Sympifyable, optional
+                A SymPy expression representing the Young's modulus of the member.
+                It measures the stiffness of the member material. Default is 1.
+            I_flex_rigid : Sympifyable, optional
+                A SymPy expression representing the flexural rigidity of the member.
+                Default is 1.
+            A : Sympifyable, optional
+                A SymPy expression representing the cross-sectional area of the member.
+                Default is 1.
+            
+            Returns
+            =======
+            Member
+                A member object representing the added member.
+            """
+        
+        self.x1 = simplify(x1)
+        self.y1 = simplify(y1)
+        self.x2 = simplify(x2)
+        self.y2 = simplify(y2)
+        self.E = simplify(E)
+        self.I_flex_rigid = simplify(I_flex_rigid)
+        self.A = simplify(A)
         self.member_id = member_id
+        
+        # properties that are auto computed
+        self.length = self._compute_length()
+        self.angle = self._compute_angle()
+        self.angle_deg = deg(self.angle)
+        
+        # force data of member
+        self._external_loads = []
 
-        # forces
-        self.external_loads = []
+    def _compute_length(self):
+        """Compute the length of the member."""
+        return sqrt((self.x2 - self.x1) ** 2 + (self.y2 - self.y1) ** 2)
+    
+    def _compute_angle(self):
+        """Compute the angle of the member in radians."""
+        return atan2(self.y2 - self.y1, self.x2 - self.x1)
+    
+    @property
+    def external_loads(self):
+        """Get the external loads applied to the member."""
+        return self._external_loads
+
+    def apply_load(self, load):
+        """Apply a load to the member."""
+        self._external_loads.append(load)
+
+    def __repr__(self):
+        return f"Member(ID={self.member_id}, Length={self.length}, Global_Angle={self.angle_deg}°)"
 
 
 class ExternalLoad:
@@ -101,10 +163,15 @@ class ExternalLoad:
 
         self.applied_to = applied_to
 
+        #from which end? depends on the order you add it NEEDS REWORK to have optional starting argument
+        # maybe something like bottomleft, topright, bottomright, topleft ?
         self.local_x = local_x  # Position along the member (used for distributed loads or point loads on members)
         self.load_id = load_id
 
         self.draw_at_head = draw_at_head
+
+    def __repr__(self):
+        return f"ExternalLoad(Local_ID={self.load_id},Local_x={self.local_x}, Value={self.value}kN, global Angle={self.global_angle} rad)"
 
 
 class Node:
@@ -116,6 +183,9 @@ class Node:
 
         # forces
         self.external_loads = []
+    
+    def __repr__(self):
+        return f"Node(ID={self.node_id}, Type={self.node_type})"
 
 
 class Support:
@@ -126,7 +196,8 @@ class Support:
         self.global_angle = global_angle
         self.support_id = support_id
 
-
+    def __repr__(self):
+        return f"Support(ID={self.support_id}, Type={self.support_type})"
 # _____________________________________________________________________________________________________________________________________
 
 
@@ -135,6 +206,9 @@ class Structure2D:
         self.members = []
         self.supports = []
         self.nodes = []
+    
+    def __repr__(self):
+        return f"Structure2D(Members={len(self.members)}, Supports={len(self.supports)}, Nodes={len(self.nodes)})"
 
     # find xy position at a member based on local x and member id
     # input example "m0"
@@ -258,7 +332,37 @@ class Structure2D:
         y2 = y1 + length * sin(angle)
         return self.add_member_coordinates(x1, y1, x2, y2, E, I_flex_rigid, A)
 
-    def add_member_coordinates(self, x1, y1, x2, y2, E=1, I_flex_rigid=1, A=1):
+    def add_member_coordinates(self, x1:(Union[int, float, Expr]), y1:(Union[int, float, Expr]), x2:(Union[int, float, Expr]), y2:(Union[int, float, Expr]), E:(Union[int, float, Expr])=1, I_flex_rigid:(Union[int, float, Expr])=1, A:(Union[int, float, Expr])=1) -> Member:
+        
+        """
+            Adds a member to the structure using its coordinates.
+            
+            Parameters
+            ==========
+            x1 : Sympifyable
+                x-coordinate of the start point of the member.
+            y1 : Sympifyable
+                y-coordinate of the start point of the member.
+            x2 : Sympifyable
+                x-coordinate of the end point of the member.
+            y2 : Sympifyable
+                y-coordinate of the end point of the member.
+            E : Sympifyable, optional
+                A SymPy expression representing the Young's modulus of the member.
+                It measures the stiffness of the member material. Default is 1.
+            I_flex_rigid : Sympifyable, optional
+                A SymPy expression representing the flexural rigidity of the member.
+                Default is 1.
+            A : Sympifyable, optional
+                A SymPy expression representing the cross-sectional area of the member.
+                Default is 1.
+            
+            Returns
+            =======
+            Member
+                A member object representing the added member.
+            """
+
         member_id = len(self.members)
         member = Member(x1, y1, x2, y2, E, I_flex_rigid, A, member_id)
         self.members.append(member)
